@@ -1,0 +1,220 @@
+#include <Adafruit_NeoPixel.h>
+
+#define PIN 6
+
+// Parameter 1 = number of pixels in strip
+// Parameter 2 = Arduino pin number (most are valid)
+// Parameter 3 = pixel type flags, add together as needed:
+//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
+//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
+//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
+//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_GRB + NEO_KHZ800);
+
+// IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
+// pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
+// and minimize distance between Arduino and first pixel.  Avoid connecting
+// on a live circuit...if you must, connect GND first.
+
+int capSensePin = 2;    //digital pin for capacitive touch
+
+int touch_threshold = 30;  //Adjust the capacitive touch sensitivity
+
+void setup() {
+  
+  Serial.begin(9600);
+  //Serial.println("Testing Serial Connection");
+  
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+  
+  strip.setBrightness(50);  
+ 
+}
+
+void loop() {
+
+  int cap_time = readCapacitivePin(capSensePin);
+  Serial.println(cap_time);
+  if (cap_time > touch_threshold) {
+      
+      strip.setBrightness(30);
+      // Some example procedures showing how to display to the pixels:
+      colorWipe(strip.Color(255, 0, 0), 50); // Red
+      colorWipe(strip.Color(0, 255, 0), 50); // Green
+      colorWipe(strip.Color(0, 0, 255), 50); // Blue
+
+/*
+      // Send a theater pixel chase in...
+      theaterChase(strip.Color(127, 127, 127), 50); // White
+      theaterChase(strip.Color(127,   0,   0), 50); // Red
+      theaterChase(strip.Color(  0,   0, 127), 50); // Blue
+    
+      rainbow(20);
+      rainbowCycle(20);
+      theaterChaseRainbow(50);
+*/
+  }
+     //drive all LEDs to 0
+     colorWipe(strip.Color(0, 0, 0), 50); // Red
+
+/*    
+   //Diagnostic Serial output
+    // Every 500 ms, print the value of the capacitive sensor
+  if ( (millis() % 500) == 0){
+    Serial.print("Capacitive Sensor on Pin 2 reads: ");
+    Serial.println(readCapacitivePin(capSensePin));
+  }
+    
+*/
+
+}//end loop
+
+// Fill the dots one after the other with a color
+void colorWipe(uint32_t c, uint8_t wait) {
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+      strip.setPixelColor(i, c);
+      strip.show();
+      delay(wait);
+  }
+}
+
+void rainbow(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256; j++) {
+    for(i=0; i<strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel((i+j) & 255));
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+// Slightly different, this makes the rainbow equally distributed throughout
+void rainbowCycle(uint8_t wait) {
+  uint16_t i, j;
+
+  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+    for(i=0; i< strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+//Theatre-style crawling lights.
+void theaterChase(uint32_t c, uint8_t wait) {
+  for (int j=0; j<10; j++) {  //do 10 cycles of chasing
+    for (int q=0; q < 3; q++) {
+      for (int i=0; i < strip.numPixels(); i=i+3) {
+        strip.setPixelColor(i+q, c);    //turn every third pixel on
+      }
+      strip.show();
+     
+      delay(wait);
+     
+      for (int i=0; i < strip.numPixels(); i=i+3) {
+        strip.setPixelColor(i+q, 0);        //turn every third pixel off
+      }
+    }
+  }
+}
+
+//Theatre-style crawling lights with rainbow effect
+void theaterChaseRainbow(uint8_t wait) {
+  for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
+    for (int q=0; q < 3; q++) {
+        for (int i=0; i < strip.numPixels(); i=i+3) {
+          strip.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
+        }
+        strip.show();
+       
+        delay(wait);
+       
+        for (int i=0; i < strip.numPixels(); i=i+3) {
+          strip.setPixelColor(i+q, 0);        //turn every third pixel off
+        }
+    }
+  }
+}
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos) {
+  if(WheelPos < 85) {
+   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+  } else if(WheelPos < 170) {
+   WheelPos -= 85;
+   return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  } else {
+   WheelPos -= 170;
+   return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+}
+// readCapacitivePin
+//  Input: Arduino pin number
+//  Output: A number, from 0 to 17 expressing
+//          how much capacitance is on the pin
+//  When you touch the pin, or whatever you have
+//  attached to it, the number will get higher
+//  In order for this to work now,
+// The pin should have a 1+Megaohm resistor pulling
+//  it up to +5v.
+uint8_t readCapacitivePin(int pinToMeasure){
+  // This is how you declare a variable which
+  //  will hold the PORT, PIN, and DDR registers
+  //  on an AVR
+  volatile uint8_t* port;
+  volatile uint8_t* ddr;
+  volatile uint8_t* pin;
+  // Here we translate the input pin number from
+  //  Arduino pin number to the AVR PORT, PIN, DDR,
+  //  and which bit of those registers we care about.
+  byte bitmask;
+  if ((pinToMeasure >= 0) && (pinToMeasure <= 7)){
+    port = &PORTD;
+    ddr = &DDRD;
+    bitmask = 1 << pinToMeasure;
+    pin = &PIND;
+  }
+  if ((pinToMeasure > 7) && (pinToMeasure <= 13)){
+    port = &PORTB;
+    ddr = &DDRB;
+    bitmask = 1 << (pinToMeasure - 8);
+    pin = &PINB;
+  }
+  if ((pinToMeasure > 13) && (pinToMeasure <= 19)){
+    port = &PORTC;
+    ddr = &DDRC;
+    bitmask = 1 << (pinToMeasure - 13);
+    pin = &PINC;
+  }
+  // Discharge the pin first by setting it low and output
+  *port &= ~(bitmask);
+  *ddr  |= bitmask;
+  delay(1);
+  // Make the pin an input WITHOUT the internal pull-up on
+  *ddr &= ~(bitmask);
+  // Now see how long the pin to get pulled up
+  int cycles = 16000;
+  for(int i = 0; i < cycles; i++){
+    if (*pin & bitmask){
+      cycles = i;
+      break;
+    }
+  }
+  // Discharge the pin again by setting it low and output
+  //  It's important to leave the pins low if you want to 
+  //  be able to touch more than 1 sensor at a time - if
+  //  the sensor is left pulled high, when you touch
+  //  two sensors, your body will transfer the charge between
+  //  sensors.
+  *port &= ~(bitmask);
+  *ddr  |= bitmask;
+  
+  return cycles;
+}
+
+
